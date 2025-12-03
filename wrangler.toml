@@ -1,0 +1,23 @@
+name = "email-routing-manager"
+main = "src/index.ts"
+compatibility_date = "2024-12-03"
+compatibility_flags = ["nodejs_compat"]
+account_id = "cd83bf9065a6d97b76cf390d8b1ae1ed"
+
+# Bindings untuk D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "email-routing-db"
+database_id = "ba9f6de9-78cf-4e21-93c3-cc1c1a14e18f"
+
+# KV Storage untuk caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "fc9664c85b18483392ceffe43293ca12"
+
+# Environment variables
+[env.production]
+name = "email-routing-manager-prod"
+
+[env.staging]
+name = "email-routing-manager-staging"
