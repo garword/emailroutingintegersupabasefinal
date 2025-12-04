@@ -5,6 +5,8 @@ export const translations = {
     "Email Routing Manager": "Manajer Email Routing",
     "Kelola alamat email Cloudflare Anda dengan mudah": "Kelola alamat email Cloudflare Anda dengan mudah",
     "API Config": "Konfigurasi API",
+    "Logout": "Keluar",
+    "Out": "Keluar",
 
     // Login
     "Email Routing Manager Login": "Login Manajer Email Routing",
@@ -126,6 +128,8 @@ export const translations = {
     "Email Routing Manager": "Email Routing Manager",
     "Kelola alamat email Cloudflare Anda dengan mudah": "Manage your Cloudflare email addresses easily",
     "API Config": "API Config",
+    "Logout": "Logout",
+    "Out": "Out",
 
     // Login
     "Email Routing Manager Login": "Email Routing Manager Login",
