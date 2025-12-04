@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+// Generate random salt for password hashing
+function generateSalt(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Enhanced password hashing with salt
+async function hashPassword(password: string): Promise<string> {
+  const salt = generateSalt();
+  const saltRounds = 12; // Higher rounds for better security
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+  return hashedPassword;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Create default user if it doesn't exist
@@ -16,8 +31,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash("admin123", 10);
+    // Hash password with enhanced security
+    const hashedPassword = await hashPassword("admin123");
 
     // Create default user
     const user = await db.users.create({
