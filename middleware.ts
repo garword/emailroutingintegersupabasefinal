@@ -3,18 +3,11 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
-// Public paths that don't require authentication
-const publicPaths = [
-  "/auth/login",
-  "/api/auth/login",
-  "/api/auth/logout",
-];
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  if (pathname.startsWith("/auth/login") || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 
@@ -22,52 +15,37 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get("auth_token")?.value;
 
   if (!token) {
-    // No token, check if user was previously remembered
-    const rememberMe = request.cookies.get("remember_me")?.value;
-    if (rememberMe === "true") {
-      // User was remembered before, try to auto-login
-      try {
-        // Check if there's a valid user session by checking localStorage data
-        // This is a workaround since we can't access localStorage in middleware
-        // We'll redirect to login page with a special flag
-        const loginUrl = new URL("/auth/login?auto=true", request.url);
-        return NextResponse.redirect(loginUrl);
-      } catch (error) {
-        console.error("Auto-login error:", error);
-        const loginUrl = new URL("/auth/login", request.url);
-        return NextResponse.redirect(loginUrl);
-      }
-    } else {
-      // No remember me flag, redirect to login
-      const loginUrl = new URL("/auth/login", request.url);
-      return NextResponse.redirect(loginUrl);
-    }
+    // No token, redirect to login
+    const loginUrl = new URL("/auth/login", request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   try {
     // Verify JWT token
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     
-    // Check if token is still valid based on remember me
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000);
+    const tokenAge = now - decoded.iat;
+    
+    // Allow token if it's not expired
     if (decoded.rememberMe) {
-      // For remember me tokens, check if less than 1 day old
-      const tokenAge = Date.now() / 1000 - decoded.iat; // age in seconds
-      if (tokenAge > 24 * 60 * 60) { // more than 1 day
-        throw new Error("Token expired");
+      // Remember me tokens: valid for 1 day (86400 seconds)
+      if (tokenAge > 86400) {
+        throw new Error("Remember me token expired");
       }
     } else {
-      // For session tokens, check if less than 1 hour old
-      const tokenAge = Date.now() / 1000 - decoded.iat; // age in seconds
-      if (tokenAge > 60 * 60) { // more than 1 hour
-        throw new Error("Token expired");
+      // Session tokens: valid for 1 hour (3600 seconds)
+      if (tokenAge > 3600) {
+        throw new Error("Session token expired");
       }
     }
 
     // Token is valid, continue
     return NextResponse.next();
   } catch (error) {
-    console.error("Middleware auth error:", error);
-    // Invalid token, redirect to login
+    console.error("Middleware auth error:", error.message);
+    // Invalid or expired token, redirect to login
     const loginUrl = new URL("/auth/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

@@ -375,6 +375,25 @@ export default function EmailRoutingManager() {
               </div>
             </div>
             <div className="flex items-center gap-1 w-full sm:w-auto">
+              {userInfo ? (
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                    <span className="text-green-600 dark:text-green-400 font-bold">
+                      {userInfo.username.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium text-slate-900 dark:text-white">{userInfo.name || userInfo.username}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {userInfo.email || `${userInfo.username}@example.com`}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  <span>Guest</span>
+                </div>
+              )}
               <LanguageSelector 
                 currentLanguage={language}
                 onLanguageChange={handleLanguageChange}
