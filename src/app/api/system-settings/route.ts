@@ -4,7 +4,7 @@ import { supabase, supabaseAdmin, getSystemSetting, updateSystemSettingAdmin } f
 // GET - Mendapatkan semua system settings
 export async function GET() {
   try {
-    // Coba ambil dari Supabase, jika gagal fallback ke environment variables
+    // Selalu coba ambil dari Supabase terlebih dahulu
     let settings = []
     
     try {
@@ -13,19 +13,23 @@ export async function GET() {
         .select('*')
         .order('setting_key')
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         // Filter sensitive data untuk non-admin
         settings = data.map(setting => ({
           ...setting,
           setting_value: setting.is_encrypted ? '***ENCRYPTED***' : setting.setting_value
         }))
+        console.log('Loaded settings from Supabase:', settings.length, 'items')
+      } else if (error) {
+        console.error('Error loading from Supabase:', error)
       }
     } catch (supabaseError) {
-      console.log('Supabase not available, using fallback')
+      console.error('Supabase connection error:', supabaseError)
     }
 
-    // Fallback ke environment variables jika tidak ada data dari Supabase
+    // Jika tidak ada data dari Supabase, fallback ke environment variables
     if (settings.length === 0) {
+      console.log('No data from Supabase, using environment fallback')
       const fallbackSettings = [
         {
           id: '1',
@@ -68,7 +72,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      settings
+      settings,
+      source: settings.length > 0 && settings[0].id !== '1' ? 'supabase' : 'environment'
     })
   } catch (error) {
     console.error('Error in GET /api/system-settings:', error)
@@ -91,37 +96,67 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('Attempting to save settings:', Object.keys(settings))
+
     // Coba simpan ke Supabase jika tersedia
     try {
       const updatePromises = Object.entries(settings).map(async ([key, value]) => {
         const isEncrypted = key.includes('key') || key.includes('token') || key.includes('secret')
         const description = getSettingDescription(key)
         
-        return await updateSystemSettingAdmin(key, value as string, description, isEncrypted)
+        console.log(`Saving setting: ${key}, encrypted: ${isEncrypted}`)
+        
+        // Create Supabase client baru dengan credentials yang baru
+        const supabaseUrl = settings.supabase_url || process.env.SUPABASE_URL
+        const supabaseServiceKey = settings.supabase_service_key || process.env.SUPABASE_SERVICE_KEY
+        
+        if (!supabaseUrl || !supabaseServiceKey) {
+          throw new Error('Supabase URL or Service Key not provided')
+        }
+        
+        const { createClient } = await import('@supabase/supabase-js')
+        const tempSupabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+        
+        const { error } = await tempSupabaseAdmin
+          .from('system_settings')
+          .upsert({
+            setting_key: key,
+            setting_value: value as string,
+            description: description,
+            is_encrypted: isEncrypted,
+            updated_at: new Date().toISOString()
+          })
+
+        if (error) {
+          console.error(`Failed to save ${key}:`, error)
+          return false
+        }
+        
+        console.log(`Successfully saved ${key}`)
+        return true
       })
 
       const results = await Promise.all(updatePromises)
       const allSuccess = results.every(result => result === true)
 
       if (allSuccess) {
+        console.log('All settings saved successfully to Supabase')
         return NextResponse.json({
           success: true,
           message: 'Settings updated successfully to Supabase'
         })
+      } else {
+        const failedCount = results.filter(r => r === false).length
+        throw new Error(`Failed to save ${failedCount} settings`)
       }
     } catch (supabaseError) {
-      console.log('Failed to save to Supabase, using fallback')
+      console.error('Failed to save to Supabase:', supabaseError)
+      return NextResponse.json({
+        success: false,
+        error: `Failed to save to Supabase: ${supabaseError instanceof Error ? supabaseError.message : 'Unknown error'}`,
+        details: supabaseError
+      }, { status: 500 })
     }
-
-    // Fallback: Simpan ke environment variables (untuk development)
-    // Dalam production, ini seharusnya tidak digunakan
-    console.warn('Settings saved to console (development fallback only):', settings)
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Settings received (Note: Database not configured, this is temporary)',
-      warning: 'Please configure Supabase to persist settings permanently'
-    })
   } catch (error) {
     console.error('Error in POST /api/system-settings:', error)
     return NextResponse.json(

@@ -164,8 +164,16 @@ export default function SupabaseConfigPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success('Pengaturan berhasil disimpan!');
-        await fetchSettings(); // Refresh data
+        toast.success(result.message || 'Pengaturan berhasil disimpan!');
+        
+        // Refresh data untuk memastikan data terbaru
+        await fetchSettings();
+        
+        // Jika berhasil menyimpan ke Supabase, refresh Supabase client
+        if (result.message.includes('Supabase')) {
+          // Force refresh untuk memastikan data ter-load dari Supabase
+          window.location.reload();
+        }
       } else {
         toast.error('Gagal menyimpan pengaturan: ' + result.error);
       }
@@ -523,6 +531,16 @@ export default function SupabaseConfigPage() {
                     {t("Pastikan untuk menjaga kerahasiaan API keys dan tidak membagikannya ke pihak tidak berwenang.", language)}
                   </AlertDescription>
                 </Alert>
+
+                {/* Debug Information */}
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <h5 className="font-semibold mb-2">Debug Information</h5>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <p><strong>Data Source:</strong> {settings.length > 0 && settings[0].id !== '1' ? 'Supabase Database' : 'Environment Variables'}</p>
+                    <p><strong>Total Settings:</strong> {settings.length}</p>
+                    <p><strong>Last Updated:</strong> {new Date().toLocaleString()}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
