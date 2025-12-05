@@ -5,7 +5,17 @@ const supabaseUrl = process.env.SUPABASE_URL || 'https://your-project.supabase.c
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'your-anon-key'
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || 'your-service-key'
 
-// Buat Supabase client
+// Fungsi helper untuk cek apakah Supabase sudah dikonfigurasi
+function isSupabaseConfigured(): boolean {
+  return (
+    supabaseUrl !== 'https://your-project.supabase.co' &&
+    supabaseAnonKey !== 'your-anon-key' &&
+    supabaseUrl !== '' &&
+    supabaseAnonKey !== ''
+  )
+}
+
+// Buat Supabase client hanya jika sudah dikonfigurasi
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Buat Supabase admin client (dengan service key) untuk operasi yang membutuhkan hak akses penuh
@@ -61,6 +71,18 @@ export interface SystemSettings {
 // Fungsi helper untuk mendapatkan konfigurasi sistem
 export async function getSystemSetting(key: string): Promise<string | null> {
   try {
+    if (!isSupabaseConfigured()) {
+      // Fallback ke environment variables
+      const envMap: Record<string, string> = {
+        'supabase_url': process.env.SUPABASE_URL || '',
+        'supabase_anon_key': process.env.SUPABASE_ANON_KEY || '',
+        'supabase_service_key': process.env.SUPABASE_SERVICE_KEY || '',
+        'app_name': process.env.NEXT_PUBLIC_APP_NAME || 'Email Routing Manager',
+        'app_version': process.env.NEXT_PUBLIC_APP_VERSION || '2.0.0'
+      }
+      return envMap[key] || null
+    }
+
     const { data, error } = await supabase
       .from('system_settings')
       .select('setting_value')
@@ -82,6 +104,11 @@ export async function getSystemSetting(key: string): Promise<string | null> {
 // Fungsi helper untuk mengupdate konfigurasi sistem
 export async function updateSystemSetting(key: string, value: string, description?: string): Promise<boolean> {
   try {
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, cannot update setting:', key)
+      return false
+    }
+
     const { error } = await supabase
       .from('system_settings')
       .upsert({
@@ -106,6 +133,11 @@ export async function updateSystemSetting(key: string, value: string, descriptio
 // Fungsi helper untuk mengupdate konfigurasi sistem dengan service key (untuk data sensitif)
 export async function updateSystemSettingAdmin(key: string, value: string, description?: string, isEncrypted: boolean = false): Promise<boolean> {
   try {
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, cannot update setting:', key)
+      return false
+    }
+
     const { error } = await supabaseAdmin
       .from('system_settings')
       .upsert({

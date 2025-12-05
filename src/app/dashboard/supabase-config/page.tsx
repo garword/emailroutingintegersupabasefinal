@@ -235,6 +235,19 @@ export default function SupabaseConfigPage() {
 
           {/* Supabase Configuration Tab */}
           <TabsContent value="supabase">
+            <Alert className="mb-4 border-blue-200 bg-blue-50">
+              <AlertTriangle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Setup Instructions:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                  <li>Create a new project at <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline">supabase.com</a></li>
+                  <li>Go to SQL Editor and run the schema from <code>supabase-schema.sql</code></li>
+                  <li>Get your API keys from Project Settings → API</li>
+                  <li>Fill in the configuration below and test the connection</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+            
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -425,6 +438,11 @@ export default function SupabaseConfigPage() {
                       )}
                       <AlertDescription className={connectionTest.success ? "text-green-800" : "text-red-800"}>
                         <strong>{t("Connection Test Result:", language)}</strong> {connectionTest.message}
+                        {connectionTest.suggestion && (
+                          <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
+                            <strong>Suggestion:</strong> {connectionTest.suggestion}
+                          </div>
+                        )}
                       </AlertDescription>
                     </div>
                   </Alert>

@@ -17,12 +17,22 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
     
     try {
+      // Test dengan query yang lebih sederhana
       const { data, error } = await supabase
         .from('system_settings')
-        .select('count')
+        .select('*')
         .limit(1)
 
       if (error) {
+        // Jika tabel tidak ada, coba buat dengan query sederhana
+        if (error.message.includes('relation') || error.message.includes('does not exist')) {
+          return NextResponse.json({
+            success: false,
+            error: 'Table system_settings does not exist. Please run the SQL schema first.',
+            suggestion: 'Run the SQL schema in Supabase dashboard before testing connection.'
+          }, { status: 400 })
+        }
+        
         return NextResponse.json({
           success: false,
           error: `Connection failed: ${error.message}`,
@@ -37,7 +47,7 @@ export async function POST(request: NextRequest) {
           const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
           const { data: adminData, error: adminError } = await supabaseAdmin
             .from('users')
-            .select('count')
+            .select('*')
             .limit(1)
 
           if (adminError) {
@@ -62,7 +72,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Connection test failed',
-        details: testError
+        details: testError instanceof Error ? testError.message : 'Unknown error'
       }, { status: 400 })
     }
   } catch (error) {
