@@ -166,6 +166,46 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// DELETE - Hapus semua system settings
+export async function DELETE() {
+  try {
+    // Coba hapus dari Supabase jika tersedia
+    try {
+      const { error } = await supabaseAdmin
+        .from('system_settings')
+        .delete()
+        .neq('setting_key', 'app_name') // Jangan hapus app_name
+        .neq('setting_key', 'app_version') // Jangan hapus app_version
+
+      if (error) {
+        console.error('Error deleting from Supabase:', error)
+        return NextResponse.json({
+          success: false,
+          error: `Failed to delete settings: ${error.message}`
+        }, { status: 500 })
+      }
+
+      console.log('Successfully deleted Supabase settings from database')
+      return NextResponse.json({
+        success: true,
+        message: 'Supabase configuration deleted successfully'
+      })
+    } catch (supabaseError) {
+      console.error('Supabase not available for deletion:', supabaseError)
+      return NextResponse.json({
+        success: false,
+        error: 'Supabase not configured'
+      }, { status: 400 })
+    }
+  } catch (error) {
+    console.error('Error in DELETE /api/system-settings:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 // Helper function untuk mendapatkan deskripsi setting
 function getSettingDescription(key: string): string {
   const descriptions: Record<string, string> = {

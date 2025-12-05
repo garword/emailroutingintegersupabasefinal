@@ -20,11 +20,22 @@ import {
   EyeOff,
   Save,
   TestTube,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  AlertTriangle as AlertTriangleIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Language, t } from "@/lib/translations";
 import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface SystemSettings {
   id: string;
@@ -51,6 +62,8 @@ export default function SupabaseConfigPage() {
   const [testing, setTesting] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [connectionTest, setConnectionTest] = useState<ConnectionTest | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
   // Form states
@@ -182,6 +195,45 @@ export default function SupabaseConfigPage() {
       toast.error('Gagal menyimpan pengaturan');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteSettings = async () => {
+    setDeleting(true);
+
+    try {
+      const response = await fetch('/api/system-settings', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message || 'Konfigurasi Supabase berhasil dihapus!');
+        setDeleteDialogOpen(false);
+        
+        // Reset form data
+        setFormData({
+          supabase_url: '',
+          supabase_anon_key: '',
+          supabase_service_key: '',
+          app_name: 'Email Routing Manager',
+          app_version: '2.0.0'
+        });
+        
+        // Refresh data
+        await fetchSettings();
+      } else {
+        toast.error('Gagal menghapus konfigurasi: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting settings:', error);
+      toast.error('Gagal menghapus konfigurasi');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -400,6 +452,64 @@ export default function SupabaseConfigPage() {
                       </div>
                     )}
                   </Button>
+                  
+                  <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        disabled={deleting || loading}
+                      >
+                        {deleting ? (
+                          <div className="flex items-center space-x-2">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>{t("Menghapus...", language)}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Trash2 className="w-4 h-4" />
+                            <span>{t("Hapus Konfigurasi", language)}</span>
+                          </div>
+                        )}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <AlertTriangleIcon className="w-5 h-5 text-red-600" />
+                          {t("Hapus Konfigurasi Supabase", language)}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {t("Apakah Anda yakin ingin menghapus semua konfigurasi Supabase? Tindakan ini tidak dapat dibatalkan.", language)}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setDeleteDialogOpen(false)}
+                          disabled={deleting}
+                        >
+                          {t("Batal", language)}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={deleteSettings}
+                          disabled={deleting}
+                        >
+                          {deleting ? (
+                            <div className="flex items-center space-x-2">
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>{t("Menghapus...", language)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <Trash2 className="w-4 h-4" />
+                              <span>{t("Hapus", language)}</span>
+                            </div>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardContent>
             </Card>
