@@ -44,8 +44,9 @@ Aplikasi web modern untuk mengelola Email Routing Cloudflare dengan sistem auten
 - **Frontend**: Next.js 15 dengan App Router
 - **Language**: TypeScript 5
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
-- **Database**: Prisma ORM dengan SQLite
+- **Database**: Supabase (PostgreSQL)
 - **API**: Cloudflare API v4 integration
+- **Deployment**: Vercel (serverless)
 
 ### **UI Components**
 - **Component Library**: shadcn/ui (New York style)
@@ -57,8 +58,9 @@ Aplikasi web modern untuk mengelola Email Routing Cloudflare dengan sistem auten
 ### **Development Tools**
 - **Package Manager**: npm
 - **Linting**: ESLint dengan Next.js config
-- **Database**: Prisma dengan SQLite client
+- **Database**: Supabase PostgreSQL
 - **Authentication**: Custom auth system dengan middleware
+- **Hosting**: Vercel (free tier compatible)
 
 ## 📋 Prerequisites
 
@@ -85,22 +87,46 @@ npm install
 ```
 
 ### 3. Environment Variables
-Buat file `.env` di root project:
-```env
-DATABASE_URL="file:./db/custom.db"
+Buat file `.env.local` dari template:
+```bash
+cp .env.example .env.local
 ```
 
-### 4. Database Setup
-```bash
-npm run db:push
+Kemudian isi dengan kredensial Supabase Anda:
+```env
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres"
+SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
+SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_KEY="your-service-key"
 ```
+
+### 4. Database Setup (Supabase)
+1. Buat project di [Supabase](https://supabase.com)
+2. Buka SQL Editor di Supabase dashboard
+3. Copy dan jalankan isi file `supabase-schema.sql`
+4. Verifikasi tabel sudah dibuat di Table Editor
 
 ### 5. Jalankan Development Server
 ```bash
 npm run dev
 ```
 
-Aplikasi akan berjalan di `http://localhost:3000`
+Aplikasi akan berjalan di `http://localhost:3001`
+
+## ☁️ **Vercel Deployment**
+
+Aplikasi ini sudah dikonfigurasi untuk deploy di Vercel free tier:
+
+1. **Push ke GitHub**: Pastikan kode sudah di GitHub repository
+2. **Import ke Vercel**: Import project dari Vercel dashboard
+3. **Set Environment Variables**: Tambahkan variabel berikut di Vercel:
+   - `DATABASE_URL`
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_KEY`
+4. **Deploy**: Klik deploy dan tunggu build selesai
+
+📖 **Panduan lengkap**: Lihat [VERCEL-DEPLOYMENT.md](VERCEL-DEPLOYMENT.md) untuk instruksi detail.
 
 ## 🔑 **Login Credentials**
 

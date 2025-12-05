@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
   try {
-    // Create new user if it doesn't exist
-    const existingUser = await db.users.findUnique({
-      where: { username: "windaa" }
-    });
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('username', 'windaa')
+      .single();
 
     if (existingUser) {
       return NextResponse.json({
@@ -20,15 +22,21 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash("cantik", 10);
 
     // Create new user
-    const user = await db.users.create({
-      data: {
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .insert({
         username: "windaa",
         password: hashedPassword,
         email: "windaa@q0083aacahe1-d.space.z.ai",
         name: "Windaa User",
-        isActive: true
-      }
-    });
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,
@@ -38,7 +46,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         email: user.email,
         name: user.name,
-        isActive: user.isActive
+        is_active: user.is_active
       }
     });
 

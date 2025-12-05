@@ -1,0 +1,26 @@
+{
+    "buildCommand": "npm run build",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "framework": "nextjs",
+    "outputDirectory": ".next",
+    "regions": [
+        "sin1"
+    ],
+    "env": {
+        "SUPABASE_URL": "@supabase_url",
+        "SUPABASE_ANON_KEY": "@supabase_anon_key",
+        "SUPABASE_SERVICE_KEY": "@supabase_service_key"
+    },
+    "build": {
+        "env": {
+            "NEXT_PUBLIC_APP_NAME": "Email Routing Manager",
+            "NEXT_PUBLIC_APP_VERSION": "2.0.0"
+        }
+    },
+    "functions": {
+        "api/**/*.ts": {
+            "maxDuration": 10
+        }
+    }
+}

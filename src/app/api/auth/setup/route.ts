@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
 // Generate random salt for password hashing
@@ -19,10 +19,12 @@ async function hashPassword(password: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Create default user if it doesn't exist
-    const existingUser = await db.users.findUnique({
-      where: { username: "admin" }
-    });
+    // Check if default user already exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('username', 'admin')
+      .single();
 
     if (existingUser) {
       return NextResponse.json({
@@ -35,15 +37,21 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword("admin123");
 
     // Create default user
-    const user = await db.users.create({
-      data: {
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .insert({
         username: "admin",
         password: hashedPassword,
         email: "admin@emailkuy.com",
         name: "Administrator",
-        isActive: true
-      }
-    });
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         email: user.email,
         name: user.name,
-        isActive: user.isActive
+        is_active: user.is_active
       }
     });
 
