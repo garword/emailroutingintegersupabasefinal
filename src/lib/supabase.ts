@@ -116,7 +116,7 @@ export async function updateSystemSetting(key: string, value: string, descriptio
         setting_value: value,
         description: description,
         updated_at: new Date().toISOString()
-      })
+      }, { onConflict: 'setting_key' })
 
     if (error) {
       console.error('Error updating system setting:', error)
@@ -146,7 +146,7 @@ export async function updateSystemSettingAdmin(key: string, value: string, descr
         description: description,
         is_encrypted: isEncrypted,
         updated_at: new Date().toISOString()
-      })
+      }, { onConflict: 'setting_key' })
 
     if (error) {
       console.error('Error updating system setting (admin):', error)

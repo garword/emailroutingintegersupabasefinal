@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getCloudflareConfig } from '@/lib/cloudflare-api';
 
 // DELETE - Delete email routing
@@ -29,11 +29,13 @@ export async function DELETE(
     }
 
     // Get email routing details first
-    const emailRouting = await db.emailRouting.findUnique({
-      where: { id }
-    });
+    const { data: emailRouting, error: fetchError } = await supabase
+      .from('email_routing')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    if (!emailRouting) {
+    if (fetchError || !emailRouting) {
       return NextResponse.json({
         success: false,
         error: 'Email routing not found'
@@ -42,7 +44,7 @@ export async function DELETE(
 
     // Delete from Cloudflare API
     const deleteResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/zones/${emailRouting.zoneId}/email/routing/rules/${ruleId}`,
+      `https://api.cloudflare.com/client/v4/zones/${emailRouting.zone_id}/email/routing/rules/${ruleId}`,
       {
         method: 'DELETE',
         headers: {
@@ -58,9 +60,14 @@ export async function DELETE(
     }
 
     // Delete from database
-    await db.emailRouting.delete({
-      where: { id }
-    });
+    const { error: deleteError } = await supabase
+      .from('email_routing')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
 
     return NextResponse.json({
       success: true,

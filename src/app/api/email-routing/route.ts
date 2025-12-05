@@ -14,9 +14,22 @@ export async function GET() {
       throw error
     }
 
+    // Transform snake_case to camelCase for frontend
+    const transformedEmails = emails?.map(email => ({
+      id: email.id,
+      zoneId: email.zone_id,
+      zoneName: email.zone_name,
+      aliasPart: email.alias_part,
+      fullEmail: email.full_email,
+      ruleId: email.rule_id,
+      destination: email.destination,
+      isActive: email.is_active,
+      createdAt: email.created_at
+    })) || [];
+
     return NextResponse.json({
       success: true,
-      emails
+      emails: transformedEmails
     });
   } catch (error) {
     console.error('Error fetching email routing:', error);
@@ -123,6 +136,34 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       throw error
+    }
+
+    // Increment total emails created counter
+    try {
+      // Get current count
+      const { data: currentSetting } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'total_emails_created')
+        .single();
+
+      const currentCount = parseInt(currentSetting?.setting_value || '0', 10);
+      const newCount = currentCount + 1;
+
+      // Update counter
+      await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'total_emails_created',
+          setting_value: newCount.toString(),
+          description: 'Cumulative count of all emails ever created',
+          is_encrypted: false
+        }, { onConflict: 'setting_key' });
+
+      console.log(`Incremented total_emails_created from ${currentCount} to ${newCount}`);
+    } catch (counterError) {
+      // Don't fail the request if counter update fails
+      console.error('Failed to update email counter:', counterError);
     }
 
     return NextResponse.json({

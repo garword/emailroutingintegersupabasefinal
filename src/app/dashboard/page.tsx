@@ -16,14 +16,14 @@ import Link from "next/link";
 import { LanguageSelector } from "@/components/language-selector";
 import { Language, t } from "@/lib/translations";
 import { useAuth } from "@/contexts/auth-context";
-import { 
-  Mail, 
-  Globe, 
-  Plus, 
-  Trash2, 
-  RefreshCw, 
-  Copy, 
-  Check, 
+import {
+  Mail,
+  Globe,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Copy,
+  Check,
   AlertCircle,
   Sparkles,
   Shield,
@@ -86,6 +86,7 @@ export default function EmailRoutingManager() {
   const [darkMode, setDarkMode] = useState(false);
   const [configStatus, setConfigStatus] = useState<"checking" | "configured" | "not-configured">("checking");
   const [predefinedEmails, setPredefinedEmails] = useState<string[]>(defaultPredefinedEmails);
+  const [totalEmailsCreated, setTotalEmailsCreated] = useState<number>(0);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -100,11 +101,12 @@ export default function EmailRoutingManager() {
     loadEmailList();
     checkConfig();
     loadDestinationEmails();
-    
+    loadStats();
+
     // Load language preference
     const savedLang = localStorage.getItem("language") as Language;
     if (savedLang) setLanguage(savedLang);
-    
+
     // Check for dark mode preference
     const isDark = localStorage.getItem('darkMode') === 'true';
     setDarkMode(isDark);
@@ -121,7 +123,7 @@ export default function EmailRoutingManager() {
     try {
       const response = await fetch('/api/cloudflare/config');
       const data = await response.json();
-      
+
       if (data.success && data.config && data.config._full) {
         setConfigStatus("configured");
       } else {
@@ -144,7 +146,7 @@ export default function EmailRoutingManager() {
       setIsLoading(true);
       const response = await fetch('/api/cloudflare/zones');
       const data = await response.json();
-      
+
       if (data.success) {
         setZones(data.zones);
         if (data.zones.length > 0) {
@@ -170,7 +172,7 @@ export default function EmailRoutingManager() {
     try {
       const response = await fetch('/api/email-routing');
       const data = await response.json();
-      
+
       if (data.success) {
         setEmailList(data.emails);
       }
@@ -183,16 +185,29 @@ export default function EmailRoutingManager() {
     try {
       const response = await fetch('/api/cloudflare/config');
       const data = await response.json();
-      
+
       if (data.success && data.config && data.config.destinationEmails) {
-        const emails = Array.isArray(data.config.destinationEmails) 
-          ? data.config.destinationEmails 
+        const emails = Array.isArray(data.config.destinationEmails)
+          ? data.config.destinationEmails
           : JSON.parse(data.config.destinationEmails || '[]');
         setPredefinedEmails(emails.length > 0 ? emails : defaultPredefinedEmails);
       }
     } catch (error) {
       console.error("Failed to load destination emails:", error);
       setPredefinedEmails(defaultPredefinedEmails);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch('/api/stats');
+      const data = await response.json();
+
+      if (data.success) {
+        setTotalEmailsCreated(data.totalEmailsCreated || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load stats:", error);
     }
   };
 
@@ -205,7 +220,7 @@ export default function EmailRoutingManager() {
 
   const createEmailRouting = async () => {
     const finalDestinationEmail = destinationEmail === "custom" ? customEmail : destinationEmail;
-    
+
     if (!selectedZone || !finalDestinationEmail) {
       toast.error(t("Pilih domain dan masukkan email tujuan", language));
       return;
@@ -232,12 +247,13 @@ export default function EmailRoutingManager() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast.success(t("Email routing berhasil dibuat!", language));
         setManualAlias("");
         setCustomEmail("");
         setDestinationEmail("");
+        loadStats(); // Reload stats to get updated counter
         loadEmailList();
       } else {
         toast.error(t("Gagal membuat email routing:", language) + " " + data.error);
@@ -262,7 +278,7 @@ export default function EmailRoutingManager() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast.success(t("Email routing berhasil dihapus!", language));
         loadEmailList();
@@ -323,7 +339,7 @@ export default function EmailRoutingManager() {
               </div>
             </div>
             <div className="flex items-center gap-1 w-full sm:w-auto">
-              <LanguageSelector 
+              <LanguageSelector
                 currentLanguage={language}
                 onLanguageChange={handleLanguageChange}
               />
@@ -376,7 +392,7 @@ export default function EmailRoutingManager() {
           <Alert variant="destructive" className="mb-3 sm:mb-4 border-red-300 bg-red-50 dark:bg-red-900/20">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
             <AlertDescription className="text-xs sm:text-sm">
-              <span className="font-semibold">⚠️ {t("Cloudflare API belum dikonfigurasi!", language)}</span> 
+              <span className="font-semibold">⚠️ {t("Cloudflare API belum dikonfigurasi!", language)}</span>
               <span className="block sm:inline ml-0 sm:ml-2 mt-2 sm:mt-0">{t("Silakan klik tombol", language)} <strong>{t("API Config", language)}</strong> {t("di header untuk setup API key terlebih dahulu.", language)}</span>
             </AlertDescription>
           </Alert>
@@ -429,7 +445,7 @@ export default function EmailRoutingManager() {
                       disabled={isLoading}
                     />
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                     {isAutoMode ? (
                       <>
@@ -481,8 +497,8 @@ export default function EmailRoutingManager() {
                   <Label htmlFor="destination" className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
                     {t("Email Tujuan", language)}
                   </Label>
-                  <Select 
-                    value={destinationEmail === customEmail && customEmail ? "custom" : destinationEmail} 
+                  <Select
+                    value={destinationEmail === customEmail && customEmail ? "custom" : destinationEmail}
                     onValueChange={(value) => {
                       if (value === "custom") {
                         setDestinationEmail("custom");
@@ -490,7 +506,7 @@ export default function EmailRoutingManager() {
                         setDestinationEmail(value);
                         setCustomEmail("");
                       }
-                    }} 
+                    }}
                     disabled={isLoading}
                   >
                     <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
@@ -506,7 +522,7 @@ export default function EmailRoutingManager() {
                       <SelectItem value="custom">📝 {t("Masukkan Email Custom", language)}</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   {destinationEmail === "custom" && (
                     <Input
                       type="email"
@@ -550,8 +566,8 @@ export default function EmailRoutingManager() {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={createEmailRouting} 
+                <Button
+                  onClick={createEmailRouting}
                   disabled={isLoading || !selectedZone || (destinationEmail === "custom" ? !customEmail : !destinationEmail)}
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm h-9 sm:h-10"
                 >
@@ -672,7 +688,7 @@ export default function EmailRoutingManager() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">{t("Total Email", language)}</span>
                   <span className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                    {emailList.length}
+                    {totalEmailsCreated}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

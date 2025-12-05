@@ -6,7 +6,7 @@ export async function GET() {
   try {
     // Selalu coba ambil dari Supabase terlebih dahulu
     let settings = []
-    
+
     try {
       const { data, error } = await supabase
         .from('system_settings')
@@ -39,7 +39,7 @@ export async function GET() {
           is_encrypted: false
         },
         {
-          id: '2', 
+          id: '2',
           setting_key: 'supabase_anon_key',
           setting_value: process.env.SUPABASE_ANON_KEY || '',
           description: 'Supabase Anonymous Key',
@@ -101,43 +101,43 @@ export async function POST(request: NextRequest) {
     // Coba simpan ke Supabase jika tersedia
     try {
       console.log('Starting Supabase save process...')
-      
+
       // Validate required fields first
       const supabaseUrl = settings.supabase_url || process.env.SUPABASE_URL
       const supabaseServiceKey = settings.supabase_service_key || process.env.SUPABASE_SERVICE_KEY
-      
+
       if (!supabaseUrl || !supabaseServiceKey) {
         console.error('Missing required Supabase credentials')
         throw new Error('Supabase URL or Service Key not provided')
       }
-      
+
       console.log('Using Supabase URL:', supabaseUrl)
       console.log('Service Key available:', !!supabaseServiceKey)
-      
+
       // Create Supabase client baru dengan credentials yang baru
       const { createClient } = await import('@supabase/supabase-js')
       const tempSupabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
-      
+
       // Test connection first
       console.log('Testing Supabase connection...')
       const { data: testData, error: testError } = await tempSupabaseAdmin
         .from('system_settings')
         .select('count')
         .limit(1)
-        
+
       if (testError) {
         console.error('Supabase connection test failed:', testError)
         throw new Error(`Supabase connection failed: ${testError.message}`)
       }
-      
+
       console.log('Connection test passed, proceeding with save...')
-      
+
       const updatePromises = Object.entries(settings).map(async ([key, value]) => {
         const isEncrypted = key.includes('key') || key.includes('token') || key.includes('secret')
         const description = getSettingDescription(key)
-        
+
         console.log(`Processing setting: ${key}, encrypted: ${isEncrypted}, value length: ${value?.length || 0}`)
-        
+
         try {
           const { error } = await tempSupabaseAdmin
             .from('system_settings')
@@ -147,13 +147,13 @@ export async function POST(request: NextRequest) {
               description: description,
               is_encrypted: isEncrypted,
               updated_at: new Date().toISOString()
-            })
+            }, { onConflict: 'setting_key' })
 
           if (error) {
             console.error(`Failed to save ${key}:`, error)
             return false
           }
-          
+
           console.log(`Successfully saved ${key}`)
           return true
         } catch (itemError) {
@@ -165,18 +165,87 @@ export async function POST(request: NextRequest) {
       const results = await Promise.all(updatePromises)
       const successCount = results.filter(r => r === true).length
       const failCount = results.filter(r => r === false).length
-      
+
       console.log(`Save results: ${successCount} success, ${failCount} failed`)
-      
+
       if (failCount > 0) {
         const failedKeys = Object.entries(settings)
           .filter(([key, value], index) => !results[index])
           .map(([key]) => key)
-        
+
         throw new Error(`Failed to save ${failCount} settings: ${failedKeys.join(', ')}`)
       }
-      
+
       console.log('All settings saved successfully to Supabase')
+
+      // Auto-update .env.local
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const envPath = path.join(process.cwd(), '.env.local');
+
+        // Read existing file or empty string
+        let envContent = '';
+        try {
+          envContent = await fs.readFile(envPath, 'utf-8');
+        } catch (error) {
+          console.log('.env.local not found, creating new one');
+        }
+
+        const updates: Record<string, string> = {};
+        if (settings.supabase_url) updates['SUPABASE_URL'] = settings.supabase_url;
+        if (settings.supabase_anon_key) updates['SUPABASE_ANON_KEY'] = settings.supabase_anon_key;
+        if (settings.supabase_service_key) updates['SUPABASE_SERVICE_KEY'] = settings.supabase_service_key;
+
+        if (Object.keys(updates).length > 0) {
+          // Parse existing .env.local line by line
+          const lines = envContent.split('\n');
+          const updatedLines: string[] = [];
+          const processedKeys = new Set<string>();
+
+          // Update existing lines
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+
+            // Skip empty lines and comments
+            if (!trimmedLine || trimmedLine.startsWith('#')) {
+              updatedLines.push(line);
+              continue;
+            }
+
+            // Check if this line contains one of our keys
+            const [key] = trimmedLine.split('=');
+            if (key && updates[key] !== undefined) {
+              // Replace with new value
+              updatedLines.push(`${key}=${updates[key]}`);
+              processedKeys.add(key);
+            } else {
+              // Keep the line as is
+              updatedLines.push(line);
+            }
+          }
+
+          // Append new keys that weren't in the file
+          for (const [key, value] of Object.entries(updates)) {
+            if (!processedKeys.has(key)) {
+              updatedLines.push(`${key}=${value}`);
+            }
+          }
+
+          // Join lines and ensure single trailing newline
+          let newContent = updatedLines.join('\n');
+          if (newContent && !newContent.endsWith('\n')) {
+            newContent += '\n';
+          }
+
+          await fs.writeFile(envPath, newContent, 'utf-8');
+          console.log('Successfully updated .env.local with new configuration');
+        }
+      } catch (envError) {
+        console.error('Failed to update .env.local:', envError);
+        // Don't fail the request if local file update fails
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Settings updated successfully to Supabase',
@@ -251,6 +320,6 @@ function getSettingDescription(key: string): string {
     'max_email_per_domain': 'Maximum Email Per Domain',
     'session_timeout': 'Session Timeout (minutes)'
   }
-  
+
   return descriptions[key] || `Setting for ${key}`
 }
