@@ -100,61 +100,94 @@ export async function POST(request: NextRequest) {
 
     // Coba simpan ke Supabase jika tersedia
     try {
+      console.log('Starting Supabase save process...')
+      
+      // Validate required fields first
+      const supabaseUrl = settings.supabase_url || process.env.SUPABASE_URL
+      const supabaseServiceKey = settings.supabase_service_key || process.env.SUPABASE_SERVICE_KEY
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error('Missing required Supabase credentials')
+        throw new Error('Supabase URL or Service Key not provided')
+      }
+      
+      console.log('Using Supabase URL:', supabaseUrl)
+      console.log('Service Key available:', !!supabaseServiceKey)
+      
+      // Create Supabase client baru dengan credentials yang baru
+      const { createClient } = await import('@supabase/supabase-js')
+      const tempSupabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+      
+      // Test connection first
+      console.log('Testing Supabase connection...')
+      const { data: testData, error: testError } = await tempSupabaseAdmin
+        .from('system_settings')
+        .select('count')
+        .limit(1)
+        
+      if (testError) {
+        console.error('Supabase connection test failed:', testError)
+        throw new Error(`Supabase connection failed: ${testError.message}`)
+      }
+      
+      console.log('Connection test passed, proceeding with save...')
+      
       const updatePromises = Object.entries(settings).map(async ([key, value]) => {
         const isEncrypted = key.includes('key') || key.includes('token') || key.includes('secret')
         const description = getSettingDescription(key)
         
-        console.log(`Saving setting: ${key}, encrypted: ${isEncrypted}`)
+        console.log(`Processing setting: ${key}, encrypted: ${isEncrypted}, value length: ${value?.length || 0}`)
         
-        // Create Supabase client baru dengan credentials yang baru
-        const supabaseUrl = settings.supabase_url || process.env.SUPABASE_URL
-        const supabaseServiceKey = settings.supabase_service_key || process.env.SUPABASE_SERVICE_KEY
-        
-        if (!supabaseUrl || !supabaseServiceKey) {
-          throw new Error('Supabase URL or Service Key not provided')
-        }
-        
-        const { createClient } = await import('@supabase/supabase-js')
-        const tempSupabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
-        
-        const { error } = await tempSupabaseAdmin
-          .from('system_settings')
-          .upsert({
-            setting_key: key,
-            setting_value: value as string,
-            description: description,
-            is_encrypted: isEncrypted,
-            updated_at: new Date().toISOString()
-          })
+        try {
+          const { error } = await tempSupabaseAdmin
+            .from('system_settings')
+            .upsert({
+              setting_key: key,
+              setting_value: value as string,
+              description: description,
+              is_encrypted: isEncrypted,
+              updated_at: new Date().toISOString()
+            })
 
-        if (error) {
-          console.error(`Failed to save ${key}:`, error)
+          if (error) {
+            console.error(`Failed to save ${key}:`, error)
+            return false
+          }
+          
+          console.log(`Successfully saved ${key}`)
+          return true
+        } catch (itemError) {
+          console.error(`Exception saving ${key}:`, itemError)
           return false
         }
-        
-        console.log(`Successfully saved ${key}`)
-        return true
       })
 
       const results = await Promise.all(updatePromises)
-      const allSuccess = results.every(result => result === true)
-
-      if (allSuccess) {
-        console.log('All settings saved successfully to Supabase')
-        return NextResponse.json({
-          success: true,
-          message: 'Settings updated successfully to Supabase'
-        })
-      } else {
-        const failedCount = results.filter(r => r === false).length
-        throw new Error(`Failed to save ${failedCount} settings`)
+      const successCount = results.filter(r => r === true).length
+      const failCount = results.filter(r => r === false).length
+      
+      console.log(`Save results: ${successCount} success, ${failCount} failed`)
+      
+      if (failCount > 0) {
+        const failedKeys = Object.entries(settings)
+          .filter(([key, value], index) => !results[index])
+          .map(([key]) => key)
+        
+        throw new Error(`Failed to save ${failCount} settings: ${failedKeys.join(', ')}`)
       }
+      
+      console.log('All settings saved successfully to Supabase')
+      return NextResponse.json({
+        success: true,
+        message: 'Settings updated successfully to Supabase',
+        saved: successCount
+      })
     } catch (supabaseError) {
       console.error('Failed to save to Supabase:', supabaseError)
       return NextResponse.json({
         success: false,
         error: `Failed to save to Supabase: ${supabaseError instanceof Error ? supabaseError.message : 'Unknown error'}`,
-        details: supabaseError
+        details: supabaseError instanceof Error ? supabaseError.stack : 'No details available'
       }, { status: 500 })
     }
   } catch (error) {
