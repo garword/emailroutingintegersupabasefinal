@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { serialize } from "cookie";
@@ -84,11 +84,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user in database
-    const user = await db.users.findUnique({
-      where: { username }
-    });
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single()
 
-    if (!user) {
+    if (error || !user) {
       loginAttempts.set(clientIP, {
         count: userAttempts.count + 1,
         lastAttempt: now
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (!user.is_active) {
       return NextResponse.json(
         { success: false, error: "Akun tidak aktif" },
         { status: 401 }

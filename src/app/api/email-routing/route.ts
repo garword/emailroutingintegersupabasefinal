@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getCloudflareConfig } from '@/lib/cloudflare-api';
 
 // GET - List all email routing
 export async function GET() {
   try {
-    const emails = await db.emailRouting.findMany({
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    const { data: emails, error } = await supabase
+      .from('email_routing')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({
       success: true,
@@ -104,17 +107,23 @@ export async function POST(request: NextRequest) {
     const ruleId = routingData.result.id;
 
     // Save to database
-    const newEmailRouting = await db.emailRouting.create({
-      data: {
-        zoneId,
-        zoneName,
-        aliasPart,
-        fullEmail,
-        ruleId,
+    const { data: newEmailRouting, error } = await supabase
+      .from('email_routing')
+      .insert({
+        zone_id: zoneId,
+        zone_name: zoneName,
+        alias_part: aliasPart,
+        full_email: fullEmail,
+        rule_id: ruleId,
         destination: destinationEmail,
-        isActive: true
-      }
-    });
+        is_active: true
+      })
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({
       success: true,

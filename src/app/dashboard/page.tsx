@@ -30,6 +30,7 @@ import {
   Clock,
   Zap,
   Settings,
+  Database,
   LogOut
 } from "lucide-react";
 import { toast } from "sonner";
@@ -333,8 +334,19 @@ export default function EmailRoutingManager() {
                   className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
                   <Settings className="w-3 sm:w-4 h-3 sm:h-4 mr-1" />
-                  <span className="hidden sm:inline">{t("API Config", language)}</span>
-                  <span className="sm:hidden">{t("Config", language)}</span>
+                  <span className="hidden sm:inline">{t("Cloudflare", language)}</span>
+                  <span className="sm:hidden">{t("CF", language)}</span>
+                </Button>
+              </Link>
+              <Link href="/dashboard/supabase-config" className="flex-1 sm:flex-none">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  <Database className="w-3 sm:w-4 h-3 sm:h-4 mr-1" />
+                  <span className="hidden sm:inline">{t("Database", language)}</span>
+                  <span className="sm:hidden">{t("DB", language)}</span>
                 </Button>
               </Link>
               <Button
